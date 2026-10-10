@@ -487,6 +487,12 @@ function HowItWorks() {
           <li>Commission is a share of the order value of each confirmed order our team links to your referral: one rate for the customer's first order, another for repeat orders. Your tier and its rates are shown on your dashboard.</li>
           <li>Commission is earned on confirmed orders, not on clicks or enquiries alone. Businesses that are already our customers, or that someone else introduced first, may not qualify.</li>
           <li>Withdraw your current balance to UPI whenever you like. Our team pays each request and updates it with the payment reference.</li>
+          <li>
+            Commission must be withdrawn within your tier's time limit, shown on your dashboard, counted from when it is added
+            to your balance. Commission not withdrawn or requested by then expires and can no longer be withdrawn. Each
+            withdrawal uses the commission closest to expiring first. If a request is rejected, that amount goes back to
+            your balance with its original expiry date.
+          </li>
           <li>Your lead-quality rating reflects how many of your leads turn into real business. Enquiries from low-rated accounts may be handled later.</li>
           <li>
             Fake, junk or bulk enquiries, onboarding people without their agreement, or any other misuse can get your account

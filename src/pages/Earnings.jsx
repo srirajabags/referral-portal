@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react'
 import { Alert } from '../components.jsx'
 import { requestWithdrawal } from '../services/api.js'
 import { track } from '../services/analytics.js'
-import { formatPercent, formatRupees, withdrawalProblem } from '../domain/referral.js'
+import { expiryNotice, formatPercent, formatRupees, validityText, withdrawalProblem } from '../domain/referral.js'
 
 // Tier, what has been earned and paid, and asking for the rest by UPI. The
 // history of requests, and what became of each, is the Withdrawals tab.
 export default function Earnings({ me, getToken, onChanged, onShowHistory, onHold = false }) {
-  const balance = { earned: 0, paid: 0, pending: 0, available: 0, ...me.balance }
+  const balance = { earned: 0, paid: 0, pending: 0, expired: 0, available: 0, ...me.balance }
+  const validity = validityText(me.tier?.validityMonths)
+  const notice = expiryNotice(me.nextExpiry)
   const inProgress = me.openWithdrawal
 
   const [upiId, setUpiId] = useState(me.upiId || '')
@@ -51,6 +53,7 @@ export default function Earnings({ me, getToken, onChanged, onShowHistory, onHol
             {formatPercent(me.tier.firstOrderRate)} of a customer's first order · {formatPercent(me.tier.repeatOrderRate)} of
             each repeat order
             {me.tier.onboardingShare > 0 && <> · {formatPercent(me.tier.onboardingShare)} on top of what affiliates you onboard earn</>}
+            {validity && <> · withdraw within {validity} of earning</>}
           </p>
         )}
       </div>
@@ -58,8 +61,21 @@ export default function Earnings({ me, getToken, onChanged, onShowHistory, onHol
       <dl className="space-y-2">
         <Figure label="Total commission earned" value={balance.earned} />
         <Figure label="Withdrawn" value={balance.paid} />
+        {/* Always shown, like Withdrawn: what was earned but can no longer be withdrawn. */}
+        <Figure label="Expired" value={balance.expired} expired={balance.expired > 0} />
         <Figure label="Current balance" value={balance.available} highlight />
       </dl>
+      {balance.expired > 0 && (
+        <p className="text-xs text-red-800">
+          {formatRupees(balance.expired)} expired because it was not withdrawn{validity ? ` within ${validity}` : ' in time'}, and can no longer be withdrawn.
+        </p>
+      )}
+      {/* No nudge to withdraw while withdrawals are paused. */}
+      {notice && !onHold && (notice.urgent ? (
+        <p role="status" className="rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">⏳ {notice.text}</p>
+      ) : (
+        <p className="text-xs text-ink-soft">{notice.text}</p>
+      ))}
       {me.summary?.onboardingEarned > 0 && (
         <p className="text-xs text-ink-soft">
           Includes {formatRupees(me.summary.onboardingEarned)} from affiliates you onboarded.
@@ -113,11 +129,14 @@ export default function Earnings({ me, getToken, onChanged, onShowHistory, onHol
   )
 }
 
-function Figure({ label, value, highlight }) {
+function Figure({ label, value, highlight, expired }) {
+  const box = highlight ? 'bg-mint-pale' : 'bg-paper-alt'
+  const term = highlight ? 'font-semibold text-navy-deep' : 'text-ink-soft'
+  const figure = expired ? 'text-lg text-red-800' : highlight ? 'text-2xl text-navy' : 'text-lg text-navy'
   return (
-    <div className={`flex items-baseline justify-between gap-3 rounded-xl px-3 py-2 ${highlight ? 'bg-mint-pale' : 'bg-paper-alt'}`}>
-      <dt className={`text-sm ${highlight ? 'font-semibold text-navy-deep' : 'text-ink-soft'}`}>{label}</dt>
-      <dd className={`font-bold text-navy ${highlight ? 'text-2xl' : 'text-lg'}`}>{formatRupees(value)}</dd>
+    <div className={`flex items-baseline justify-between gap-3 rounded-xl px-3 py-2 ${box}`}>
+      <dt className={`text-sm ${term}`}>{label}</dt>
+      <dd className={`font-bold ${figure}`}>{formatRupees(value)}</dd>
     </div>
   )
 }

@@ -3,7 +3,7 @@ import {
   normaliseCode, routeFor, normaliseIndianMobile, formatMobile, cleanOtp,
   shareMessage, whatsappShareUrl, whatsappEnquiryUrl, authErrorMessage, enquiryProblem, smsLanguage,
   formatEnquiryDate, formatRupees, formatPercent, normaliseUpiId, withdrawalProblem, viewFor, urlForView,
-  onboardProblem, inviteWhatsappUrl, leadQualityText,
+  onboardProblem, inviteWhatsappUrl, leadQualityText, validityText, expiryNotice,
 } from './referral.js'
 
 describe('routeFor — a shared link lands on the right screen', () => {
@@ -191,5 +191,33 @@ describe('leadQualityText — the rating, in words an affiliate can act on', () 
   it('says what the numbers were and what follows from them', () => {
     expect(leadQualityText({ label: 'Good', good: 5, junk: 1 })).toBe('5 of your 6 decided leads turned into real business. Your enquiries are handled first.')
     expect(leadQualityText({ label: 'Poor', good: 0, junk: 4 })).toMatch(/handled last.*block/)
+  })
+})
+
+describe('commission expiry, in words', () => {
+  it('names the time limit as a person says it', () => {
+    expect(validityText(3)).toBe('3 months')
+    expect(validityText(1)).toBe('1 month')
+    for (const v of [0, null, undefined, -2]) expect(validityText(v)).toBe('')
+  })
+
+  const NOW = Date.UTC(2026, 9, 10, 12, 0) // 10 Oct 2026, 5:30 pm IST
+  const at = (days) => Math.floor(NOW / 1000) + days * 86400
+
+  it('warns plainly when money expires within 30 days', () => {
+    expect(expiryNotice({ amount: 150, at: at(20) }, NOW)).toEqual({
+      urgent: true, text: '₹150 of your balance expires on 30 Oct 2026. Withdraw it before then, or it can no longer be withdrawn.',
+    })
+  })
+
+  it('mentions a later expiry quietly', () => {
+    expect(expiryNotice({ amount: 34.5, at: at(80) }, NOW)).toEqual({
+      urgent: false, text: '₹34.50 expires on 29 Dec 2026 if not withdrawn by then.',
+    })
+  })
+
+  it('says nothing when nothing is due to expire', () => {
+    expect(expiryNotice(null, NOW)).toBeNull()
+    expect(expiryNotice({ amount: 0, at: at(5) }, NOW)).toBeNull()
   })
 })

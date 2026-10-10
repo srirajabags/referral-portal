@@ -69,7 +69,7 @@ export default function Enquiries({ getToken, onSignedOut, earned = 0 }) {
                 </div>
                 <div className="flex items-center gap-2">
                   <StagePill stage={e.stage} label={e.stageLabel} />
-                  {e.commission > 0 && <span className="text-sm font-semibold text-navy-deep">{formatRupees(e.commission)}</span>}
+                  <Commission amount={e.commission} expired={e.expired} />
                 </div>
               </li>
             ))}
@@ -113,6 +113,25 @@ function StagePill({ stage, label }) {
   return (
     <span className={`w-fit shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${STAGE_TONES[stage] ?? 'bg-navy/5 text-navy'}`}>
       {label}
+    </span>
+  )
+}
+
+// What an enquiry earned. Expired money (not withdrawn in time) is struck through.
+function Commission({ amount, expired = 0 }) {
+  if (!(amount > 0)) return null
+  if (expired >= amount) {
+    return (
+      <span className="flex items-center gap-1.5">
+        <span className="text-sm font-semibold text-red-800/70 line-through">{formatRupees(amount)}</span>
+        <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-800">Expired</span>
+      </span>
+    )
+  }
+  return (
+    <span className="flex flex-col items-end leading-tight">
+      <span className="text-sm font-semibold text-navy-deep">{formatRupees(amount)}</span>
+      {expired > 0 && <span className="text-xs text-red-800">{formatRupees(expired)} expired</span>}
     </span>
   )
 }

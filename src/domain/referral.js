@@ -132,6 +132,24 @@ export const formatRupees = (amount) => {
   return Number.isInteger(Math.round(n * 100) / 100) ? RUPEES.format(n) : RUPEES_PAISE.format(n)
 }
 
+// A tier's time limit for withdrawing commission: 3 -> "3 months". None: "".
+export const validityText = (months) => {
+  const n = Math.floor(Number(months))
+  return Number.isFinite(n) && n > 0 ? `${n} month${n === 1 ? '' : 's'}` : ''
+}
+
+// What the dashboard says about the next commission to expire (from the
+// proxy's nextExpiry: { amount, at }). Within 30 days it is a warning.
+const EXPIRY_WARNING_DAYS = 30
+export const expiryNotice = (next, nowMs = Date.now()) => {
+  if (!next || !(Number(next.amount) > 0) || !next.at) return null
+  const date = formatEnquiryDate(next.at)
+  const urgent = next.at * 1000 - nowMs <= EXPIRY_WARNING_DAYS * 86_400_000
+  return urgent
+    ? { urgent, text: `${formatRupees(next.amount)} of your balance expires on ${date}. Withdraw it before then, or it can no longer be withdrawn.` }
+    : { urgent, text: `${formatRupees(next.amount)} expires on ${date} if not withdrawn by then.` }
+}
+
 // A tier rate as a person says it: 0.01 -> "1%", 0.005 -> "0.5%".
 export const formatPercent = (rate) => {
   const n = Number(rate)
