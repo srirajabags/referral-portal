@@ -183,3 +183,15 @@ export const inviteWhatsappUrl = ({ phone, name, portalUrl }) => {
     `with this number (${formatMobile(e164)}) to get your own referral link.`
   return `https://wa.me/${e164.slice(1)}?text=${encodeURIComponent(text)}`
 }
+
+// What an affiliate's lead-quality rating means, in one sentence.
+export const leadQualityText = ({ label, good = 0, junk = 0 } = {}) => {
+  const decided = good + junk
+  if (label === 'Not rated yet' || decided < 3) {
+    return 'We rate your leads once our team has decided on a few of them.'
+  }
+  const of = `${good} of your ${decided} decided lead${decided === 1 ? '' : 's'} turned into real business`
+  if (label === 'Good') return `${of}. Your enquiries are handled first.`
+  if (label === 'Fair') return `${of}. Better-qualified leads raise your rating.`
+  return `${of}. Enquiries from low-rated accounts are handled last, and junk leads can lead to a block.`
+}

@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Alert } from '../components.jsx'
 import { requestWithdrawal } from '../services/api.js'
+import { track } from '../services/analytics.js'
 import { formatPercent, formatRupees, withdrawalProblem } from '../domain/referral.js'
 
 // Tier, what has been earned and paid, and asking for the rest by UPI. The
 // history of requests, and what became of each, is the Withdrawals tab.
-export default function Earnings({ me, getToken, onChanged, onShowHistory }) {
+export default function Earnings({ me, getToken, onChanged, onShowHistory, onHold = false }) {
   const balance = { earned: 0, paid: 0, pending: 0, available: 0, ...me.balance }
   const inProgress = me.openWithdrawal
 
@@ -26,6 +27,7 @@ export default function Earnings({ me, getToken, onChanged, onShowHistory }) {
     setBusy(true)
     try {
       await requestWithdrawal(await getToken(), { upiId, amount })
+      track('withdrawal_requested', { value: Number(amount), currency: 'INR' })
       setSent(true)
       await onChanged()
     } catch (err) {
@@ -67,7 +69,9 @@ export default function Earnings({ me, getToken, onChanged, onShowHistory }) {
         <p className="text-xs text-ink-soft">{formatRupees(balance.pending)} requested and being processed.</p>
       )}
 
-      {inProgress ? (
+      {onHold ? (
+        <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-900">Withdrawals are paused while your account is on hold.</p>
+      ) : inProgress ? (
         <p role="status" className="rounded-xl bg-navy/5 px-4 py-3 text-sm text-navy">
           {sent ? 'Request sent. ' : ''}Your withdrawal {inProgress.ref} of {formatRupees(inProgress.amount)} to{' '}
           <span className="font-medium">{inProgress.upiId}</span> is being processed. It will show as paid, with the

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Alert, FactoryPhoto, Shell, WhatsAppIcon } from '../components.jsx'
 import { checkCode, sendEnquiry } from '../services/api.js'
 import { enquiryProblem, whatsappEnquiryUrl } from '../domain/referral.js'
+import { track } from '../services/analytics.js'
 import BadLink from './BadLink.jsx'
 
 // What a buyer sees when an affiliate's link is opened. Written for them: who
@@ -30,6 +31,7 @@ export default function ReferralLanding({ code }) {
     setBusy(true)
     try {
       await sendEnquiry({ ...form, code })
+      track('generate_lead', { method: 'referral_form' })
       setSent(true)
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (err) {
@@ -71,7 +73,8 @@ export default function ReferralLanding({ code }) {
             <li>W-cut, D-cut and loop-handle bags in many sizes and colours</li>
             <li>Bulk orders for shops, supermarkets, restaurants and events</li>
           </ul>
-          <a className="btn-whatsapp mt-2 lg:w-auto lg:px-8" href={whatsappEnquiryUrl(code)} target="_blank" rel="noopener">
+          <a className="btn-whatsapp mt-2 lg:w-auto lg:px-8" href={whatsappEnquiryUrl(code)} target="_blank" rel="noopener"
+            onClick={() => track('generate_lead', { method: 'referral_whatsapp' })}>
             <WhatsAppIcon /> Get a quote on WhatsApp
           </a>
         </section>

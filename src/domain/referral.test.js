@@ -3,7 +3,7 @@ import {
   normaliseCode, routeFor, normaliseIndianMobile, formatMobile, cleanOtp,
   shareMessage, whatsappShareUrl, whatsappEnquiryUrl, authErrorMessage, enquiryProblem, smsLanguage,
   formatEnquiryDate, formatRupees, formatPercent, normaliseUpiId, withdrawalProblem, viewFor, urlForView,
-  onboardProblem, inviteWhatsappUrl,
+  onboardProblem, inviteWhatsappUrl, leadQualityText,
 } from './referral.js'
 
 describe('routeFor — a shared link lands on the right screen', () => {
@@ -181,5 +181,15 @@ describe('onboarding another affiliate', () => {
     expect(text).toContain('https://refer.srirajabags.in')
     expect(text).toContain('+91 98111 22233')
     expect(inviteWhatsappUrl({ phone: '123', name: 'x', portalUrl: 'u' })).toBe(null)
+  })
+})
+
+describe('leadQualityText — the rating, in words an affiliate can act on', () => {
+  it('waits until a few leads are decided', () => {
+    expect(leadQualityText({ label: 'Not rated yet', good: 1, junk: 0 })).toMatch(/once our team has decided/)
+  })
+  it('says what the numbers were and what follows from them', () => {
+    expect(leadQualityText({ label: 'Good', good: 5, junk: 1 })).toBe('5 of your 6 decided leads turned into real business. Your enquiries are handled first.')
+    expect(leadQualityText({ label: 'Poor', good: 0, junk: 4 })).toMatch(/handled last.*block/)
   })
 })

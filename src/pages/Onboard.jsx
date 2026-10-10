@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Alert, Spinner, WhatsAppIcon, useCooldown } from '../components.jsx'
 import { fetchOnboarded, onboardAffiliate } from '../services/api.js'
+import { track } from '../services/analytics.js'
 import { formatEnquiryDate, formatPercent, formatRupees, inviteWhatsappUrl, onboardProblem } from '../domain/referral.js'
 
 // The Onboard tab: bring someone else into the programme and earn a share, on
 // top, of everything they earn, for life. They are added with their own code and
 // join the moment they first sign in with the number given here.
-export default function Onboard({ me, getToken, onSignedOut, onChanged }) {
+export default function Onboard({ me, getToken, onSignedOut, onChanged, onHold = false }) {
   const share = me.tier?.onboardingShare ?? 0
   const earned = me.summary?.onboardingEarned ?? 0
 
@@ -48,6 +49,7 @@ export default function Onboard({ me, getToken, onSignedOut, onChanged }) {
     setBusy(true)
     try {
       await onboardAffiliate(await getToken(), form)
+      track('affiliate_onboarded')
       setAdded({ name: form.name.trim(), phone: form.phone })
       setForm({ name: '', phone: '', city: '', consent: false })
       if (page === 1) load(1); else setPage(1)
@@ -74,7 +76,9 @@ export default function Onboard({ me, getToken, onSignedOut, onChanged }) {
           {earned > 0 && <EarnedChip label="Earned from people you onboarded" amount={earned} />}
         </div>
 
-        {added ? (
+        {onHold ? (
+          <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-900">Onboarding is paused while your account is on hold.</p>
+        ) : added ? (
           <div className="space-y-3 rounded-xl bg-mint-pale px-4 py-4" role="status">
             <p className="font-medium text-navy-deep">{added.name} has been added.</p>
             <p className="text-sm text-navy">

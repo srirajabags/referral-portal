@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Alert, FactoryPhoto, Shell, Spinner, WhatsAppIcon, useCooldown } from '../components.jsx'
 import { fetchMe } from '../services/api.js'
 import InstallCard from '../InstallCard.jsx'
+import { track } from '../services/analytics.js'
 import Earnings from './Earnings.jsx'
 import Enquiries from './Enquiries.jsx'
 import Withdrawals from './Withdrawals.jsx'
@@ -9,7 +10,7 @@ import Onboard from './Onboard.jsx'
 import { firebaseConfigured, loadAuth } from '../services/firebase.js'
 import {
   authErrorMessage, cleanOtp, formatMobile, normaliseIndianMobile, OTP_LENGTH,
-  whatsappShareUrl, shareMessage, urlForView, viewFor,
+  whatsappShareUrl, shareMessage, urlForView, viewFor, leadQualityText,
 } from '../domain/referral.js'
 
 const RESEND_AFTER_S = 30
@@ -103,6 +104,7 @@ function SignIn({ fb }) {
     try {
       // On success onAuthStateChanged takes over and the dashboard replaces this.
       await confirmation.current.confirm(code)
+      track('login', { method: 'phone_otp' })
     } catch (err) {
       console.warn('OTP check failed:', err?.code, err?.message)
       setError(authErrorMessage(err))
@@ -144,7 +146,10 @@ function SignIn({ fb }) {
                   </div>
                 </label>
                 <button className="btn-primary" type="submit" disabled={busy}>{busy ? 'Sending…' : 'Send OTP'}</button>
-                <p className="text-xs text-ink-soft">We'll send a 6-digit code by SMS. Standard SMS rates may apply.</p>
+                <p className="text-xs text-ink-soft">
+                  We'll send a 6-digit code by SMS. Standard SMS rates may apply. By signing in, you agree to the
+                  programme terms below.
+                </p>
               </form>
             ) : (
               <form onSubmit={(e) => { e.preventDefault(); confirm(otp) }} className="space-y-4" noValidate>
@@ -271,10 +276,12 @@ function Dashboard({ fb, user }) {
   }
   if (!me) return <Shell narrow><Spinner label="Getting your link…" /></Shell>
   const summary = { enquiries: 0, inProgress: 0, ordersConfirmed: 0, commissionEarned: 0, ...me.summary }
+  // On hold: still signed in, read-only. The link, withdrawals and onboarding pause.
+  const onHold = me.status === 'Blocked'
 
   const shareButtons = (
     <>
-      <a className="btn-whatsapp" href={whatsappShareUrl(me.link)} target="_blank" rel="noopener">
+      <a className="btn-whatsapp" href={whatsappShareUrl(me.link)} target="_blank" rel="noopener" onClick={() => track('share', { method: 'whatsapp' })}>
         <WhatsAppIcon /> Share on WhatsApp
       </a>
       {canShare ? (
@@ -299,16 +306,27 @@ function Dashboard({ fb, user }) {
     <Shell
       // Within thumb's reach on a phone. On a desktop the same buttons sit in
       // the link card instead, where the eye already is.
-      footer={
+      footer={onHold ? null : (
         <div className="sticky bottom-0 border-t border-rule bg-paper/95 backdrop-blur safe-bottom lg:hidden">
           <div className="mx-auto grid w-full max-w-md grid-cols-[1fr_auto] gap-2 px-4 pt-3 md:max-w-2xl">{shareButtons}</div>
         </div>
-      }
+      )}
     >
       <div className="mb-4 flex items-center justify-between text-sm text-ink-soft">
         <span>Signed in as <span className="font-medium text-ink">{formatMobile(me.phone)}</span></span>
         {signOutButton}
       </div>
+
+      {onHold && (
+        <div role="alert" className="mb-5 space-y-1.5 rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-900">
+          <p className="font-semibold">Your account is on hold</p>
+          {me.noteToAffiliate && <p>{me.noteToAffiliate}</p>}
+          <p>
+            Your referral link is paused, and you cannot request withdrawals or onboard anyone. You can still see your
+            enquiries and earnings. Please message us on WhatsApp at +91 91770 56061 if you think this is a mistake.
+          </p>
+        </div>
+      )}
 
       <div className="mb-5 flex items-center justify-between gap-3 lg:mb-8">
         <div role="tablist" aria-label="Dashboard" className="grid flex-1 grid-cols-2 gap-1 rounded-xl bg-paper-alt p-1 ring-1 ring-rule min-[420px]:grid-cols-4 sm:flex-none">
@@ -334,7 +352,7 @@ function Dashboard({ fb, user }) {
         </div>
       ) : view === 'onboard' ? (
         <div className="lg:max-w-3xl">
-          <Onboard me={me} getToken={getToken} onSignedOut={signOut} onChanged={refresh} />
+          <Onboard me={me} getToken={getToken} onSignedOut={signOut} onChanged={refresh} onHold={onHold} />
         </div>
       ) : view === 'withdrawals' ? (
         <div className="lg:max-w-3xl">
@@ -352,13 +370,13 @@ function Dashboard({ fb, user }) {
                 <p className="text-sm text-ink-soft">Your referral code</p>
                 <p className="font-mono text-3xl font-bold tracking-widest text-navy lg:text-5xl">{me.code}</p>
               </div>
-              <button onClick={copy} className="w-full rounded-xl border border-dashed border-navy-soft/50 bg-paper-alt px-4 py-3 text-left hover:border-navy-soft">
+              <button onClick={copy} disabled={onHold} className="w-full rounded-xl border border-dashed border-navy-soft/50 bg-paper-alt px-4 py-3 text-left hover:border-navy-soft">
                 {/* A zero-width space before "?" gives the line one place to break, so a
                     narrow phone never splits the code itself. Copying uses me.link as is. */}
-                <span className="block break-words font-mono text-sm text-navy lg:text-base">{me.link.replace('?', '\u200B?')}</span>
-                <span className="mt-1 block text-xs font-medium text-navy-soft">{copied ? 'Copied ✓' : 'Copy link'}</span>
+                <span className={`block break-words font-mono text-sm text-navy lg:text-base ${onHold ? 'line-through opacity-50' : ''}`}>{me.link.replace('?', '\u200B?')}</span>
+                <span className="mt-1 block text-xs font-medium text-navy-soft">{onHold ? 'Paused while your account is on hold' : copied ? 'Copied ✓' : 'Copy link'}</span>
               </button>
-              <div className="hidden max-w-md grid-cols-[1fr_auto] gap-2 lg:grid">{shareButtons}</div>
+              {!onHold && <div className="hidden max-w-md grid-cols-[1fr_auto] gap-2 lg:grid">{shareButtons}</div>}
               <p className="text-sm text-ink-soft">
                 Send this link to shop owners and buyers you know. When they enquire through it, the enquiry is recorded
                 against your code. It is yours for good: the same link every time you sign in.
@@ -367,7 +385,8 @@ function Dashboard({ fb, user }) {
 
             <aside className="space-y-4 lg:col-start-2 lg:row-span-2 lg:row-start-1">
               <Counts summary={summary} onShowEnquiries={() => go('enquiries')} />
-              <Earnings me={me} getToken={getToken} onChanged={refresh} onShowHistory={() => go('withdrawals')} />
+              <LeadQuality quality={me.leadQuality} />
+              <Earnings me={me} getToken={getToken} onChanged={refresh} onShowHistory={() => go('withdrawals')} onHold={onHold} />
               <section className="card hidden space-y-3 lg:block">
                 <h2 className="font-semibold text-navy">Questions?</h2>
                 <p className="text-sm text-ink-soft">Message us about the programme or a referral you have made.</p>
@@ -384,6 +403,28 @@ function Dashboard({ fb, user }) {
         </>
       )}
     </Shell>
+  )
+}
+
+// How the affiliate's leads have turned out, as Grist rates it, and what follows.
+const QUALITY_TONES = {
+  Good: 'bg-mint-pale text-navy-deep',
+  Fair: 'bg-amber-50 text-amber-900',
+  Poor: 'bg-red-50 text-red-800',
+}
+function LeadQuality({ quality }) {
+  const q = { label: 'Not rated yet', good: 0, junk: 0, ...quality }
+  return (
+    <section className="card space-y-2" aria-label="Lead quality">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="font-semibold text-navy">Lead quality</h2>
+        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${QUALITY_TONES[q.label] ?? 'bg-paper-alt text-ink-soft'}`}>{q.label}</span>
+      </div>
+      <p className="text-sm text-ink-soft">{leadQualityText(q)}</p>
+      <p className="text-xs text-ink-soft">
+        Send genuine buyers only. Fake, junk or bulk enquiries lower your rating and can get your account put on hold.
+      </p>
+    </section>
   )
 }
 
@@ -412,8 +453,8 @@ function Counts({ summary, onShowEnquiries }) {
   )
 }
 
-// Honest about what is settled and what is not: rates and payout rules are
-// still open decisions for the pilot, and saying otherwise here would be a promise.
+// The programme's terms, shown before sign-in and on the dashboard. Plain words,
+// and clear that the programme is Sri Raja Bags' to run as it sees fit.
 function HowItWorks() {
   const steps = [
     ['Share your link', 'Send it to businesses that use carry bags: shops, supermarkets, restaurants, jewellers, event organisers.'],
@@ -435,13 +476,25 @@ function HowItWorks() {
         ))}
       </ol>
       <details className="card text-sm">
-        <summary className="min-h-6 cursor-pointer font-medium text-navy">Programme terms (pilot)</summary>
+        <summary className="min-h-6 cursor-pointer font-medium text-navy">Programme terms</summary>
         <ul className="mt-3 list-disc space-y-2 pl-5 text-ink-soft">
+          <li>
+            The partner programme is offered entirely at the discretion of Sri Raja Bags. Joining it creates no employment,
+            agency or partnership, and puts Sri Raja Bags under no obligation to accept any lead, complete any sale or keep
+            the programme running.
+          </li>
+          <li>Sri Raja Bags may change commission rates, tiers or these terms, or pause or end the programme or any account, at any time.</li>
           <li>Commission is a share of the order value of each confirmed order our team links to your referral: one rate for the customer's first order, another for repeat orders. Your tier and its rates are shown on your dashboard.</li>
+          <li>Commission is earned on confirmed orders, not on clicks or enquiries alone. Businesses that are already our customers, or that someone else introduced first, may not qualify.</li>
           <li>Withdraw your current balance to UPI whenever you like. Our team pays each request and updates it with the payment reference.</li>
-          <li>Commission is earned on confirmed orders, not on clicks or enquiries alone.</li>
-          <li>Businesses that are already our customers, or that someone else introduced first, may not qualify.</li>
-          <li>Only share a buyer's details with their permission.</li>
+          <li>Your lead-quality rating reflects how many of your leads turn into real business. Enquiries from low-rated accounts may be handled later.</li>
+          <li>
+            Fake, junk or bulk enquiries, onboarding people without their agreement, or any other misuse can get your account
+            put on hold or closed. On hold, your referral link stops working and you cannot request withdrawals or onboard
+            anyone, though you can still see your account. Sri Raja Bags decides whether, and when, earnings on a held or
+            closed account are paid.
+          </li>
+          <li>Only share a buyer's or a new affiliate's details with their permission.</li>
           <li>Questions? Message us on WhatsApp at +91 91770 56061.</li>
         </ul>
       </details>
