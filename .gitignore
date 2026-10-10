@@ -1,0 +1,10 @@
+node_modules
+dist
+.env
+.env.local
+.DS_Store
+*.log
+
+# Written by get-version.js on every dev/build/test run
+src/version.js
+public/version.json

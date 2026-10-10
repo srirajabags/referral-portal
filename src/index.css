@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/inter-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/inter-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* The website's palette, so this reads as part of srirajabags.in. */
+@theme {
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --color-navy: #05386b;
+  --color-navy-deep: #032a52;
+  --color-navy-soft: #3a628c;
+  --color-mint: #5cdb95;
+  --color-mint-pale: #edf5e1;
+  --color-ink: #232323;
+  --color-ink-soft: #6b6b72;
+  --color-rule: #e4e9ef;
+  --color-paper: #ffffff;
+  --color-paper-alt: #f7f9fb;
+  --color-whatsapp: #128c4a;
+}
+
+html { -webkit-text-size-adjust: 100%; }
+body { @apply bg-paper-alt text-ink font-sans antialiased; }
+
+/* 16px or more on every field: iOS zooms the page into anything smaller. */
+@utility field {
+  @apply block w-full min-h-12 rounded-xl border border-rule bg-paper px-4 text-base text-ink
+    placeholder:text-ink-soft/70 focus:border-navy focus:outline-none focus:ring-2 focus:ring-navy/20;
+}
+@utility btn {
+  @apply inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-5 text-base font-semibold
+    transition active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100;
+}
+@utility btn-primary { @apply btn bg-navy text-white hover:bg-navy-deep; }
+@utility btn-whatsapp { @apply btn bg-whatsapp text-white hover:brightness-95; }
+@utility btn-ghost { @apply btn border border-rule bg-paper text-navy hover:bg-paper-alt; }
+@utility card { @apply rounded-2xl border border-rule bg-paper p-5; }
+@utility safe-bottom { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
