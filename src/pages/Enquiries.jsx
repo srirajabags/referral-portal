@@ -2,10 +2,11 @@ import { useCallback, useEffect, useState } from 'react'
 import { Alert, Spinner, useCooldown } from '../components.jsx'
 import { fetchEnquiries } from '../services/api.js'
 import { formatEnquiryDate, formatRupees } from '../domain/referral.js'
+import { EarnedChip } from './Onboard.jsx'
 
 // The Enquiries tab: a page at a time, newest first. Each enquiry is a masked
 // phone and the affiliate's own reference; nothing else that identifies the buyer.
-export default function Enquiries({ getToken, onSignedOut }) {
+export default function Enquiries({ getToken, onSignedOut, earned = 0 }) {
   const [page, setPage] = useState(1)
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
@@ -47,6 +48,8 @@ export default function Enquiries({ getToken, onSignedOut }) {
           {loading ? 'Loading…' : canRefresh ? 'Refresh' : 'Up to date'}
         </button>
       </div>
+      {/* What all of these enquiries have earned, before reading the rows. */}
+      <EarnedChip label="Total commission earned" amount={earned} />
       {error && <Alert>{error}</Alert>}
 
       {!data && !error ? <Spinner label="Loading enquiries…" /> : data?.items.length ? (

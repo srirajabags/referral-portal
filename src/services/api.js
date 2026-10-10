@@ -55,3 +55,8 @@ export const fetchEnquiries = (idToken, page) => call(`/me/enquiries?page=${enco
 
 // One page of the signed-in affiliate's withdrawal history: { items, page, pages, pageSize, total }.
 export const fetchWithdrawals = (idToken, page) => call(`/me/withdrawals?page=${encodeURIComponent(page)}`, { token: idToken })
+
+// Bring another affiliate in: { name, phone, city, consent }.
+export const onboardAffiliate = (idToken, person) => call('/me/onboard', { method: 'POST', token: idToken, body: person })
+// One page of the people this affiliate onboarded: { items, page, pages, pageSize, total }.
+export const fetchOnboarded = (idToken, page) => call(`/me/onboarded?page=${encodeURIComponent(page)}`, { token: idToken })

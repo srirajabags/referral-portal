@@ -3,6 +3,7 @@ import {
   normaliseCode, routeFor, normaliseIndianMobile, formatMobile, cleanOtp,
   shareMessage, whatsappShareUrl, whatsappEnquiryUrl, authErrorMessage, enquiryProblem, smsLanguage,
   formatEnquiryDate, formatRupees, formatPercent, normaliseUpiId, withdrawalProblem, viewFor, urlForView,
+  onboardProblem, inviteWhatsappUrl,
 } from './referral.js'
 
 describe('routeFor — a shared link lands on the right screen', () => {
@@ -154,11 +155,31 @@ describe('dashboard tabs live in the address', () => {
   it('reads the tab, defaulting to the overview for anything unknown', () => {
     expect(viewFor('?view=enquiries')).toBe('enquiries')
     expect(viewFor('?view=withdrawals')).toBe('withdrawals')
+    expect(viewFor('?view=onboard')).toBe('onboard')
     for (const q of ['', '?view=nope', '?x=1', undefined]) expect(viewFor(q)).toBe('overview')
   })
   it('round-trips, so back and refresh land on the same tab', () => {
-    for (const v of ['overview', 'enquiries', 'withdrawals']) expect(viewFor(urlForView(v).split('/')[1])).toBe(v)
+    for (const v of ['overview', 'enquiries', 'withdrawals', 'onboard']) expect(viewFor(urlForView(v).split('/')[1])).toBe(v)
     expect(urlForView('nonsense')).toBe('/')
     expect(routeFor('/', '?view=enquiries').page).toBe('home')
+  })
+})
+
+describe('onboarding another affiliate', () => {
+  it('names the first thing to fix, with the phone number required', () => {
+    const ok = { name: 'Ravi Kumar', phone: '98111 22233', consent: true }
+    expect(onboardProblem(ok)).toBe(null)
+    expect(onboardProblem({ ...ok, name: ' ' })).toMatch(/name/)
+    expect(onboardProblem({ ...ok, phone: '' })).toMatch(/mobile/)
+    expect(onboardProblem({ ...ok, consent: false })).toMatch(/agreed/)
+  })
+  it('invites them on WhatsApp, at their own number, saying which number to sign in with', () => {
+    const url = inviteWhatsappUrl({ phone: '98111 22233', name: 'Ravi Kumar', portalUrl: 'https://refer.srirajabags.in' })
+    expect(url.startsWith('https://wa.me/919811122233?text=')).toBe(true)
+    const text = decodeURIComponent(url.split('text=')[1])
+    expect(text).toContain('Hi Ravi,')
+    expect(text).toContain('https://refer.srirajabags.in')
+    expect(text).toContain('+91 98111 22233')
+    expect(inviteWhatsappUrl({ phone: '123', name: 'x', portalUrl: 'u' })).toBe(null)
   })
 })

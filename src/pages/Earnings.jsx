@@ -48,6 +48,7 @@ export default function Earnings({ me, getToken, onChanged, onShowHistory }) {
           <p className="text-xs text-ink-soft">
             {formatPercent(me.tier.firstOrderRate)} of a customer's first order · {formatPercent(me.tier.repeatOrderRate)} of
             each repeat order
+            {me.tier.onboardingShare > 0 && <> · {formatPercent(me.tier.onboardingShare)} on top of what affiliates you onboard earn</>}
           </p>
         )}
       </div>
@@ -57,6 +58,11 @@ export default function Earnings({ me, getToken, onChanged, onShowHistory }) {
         <Figure label="Withdrawn" value={balance.paid} />
         <Figure label="Current balance" value={balance.available} highlight />
       </dl>
+      {me.summary?.onboardingEarned > 0 && (
+        <p className="text-xs text-ink-soft">
+          Includes {formatRupees(me.summary.onboardingEarned)} from affiliates you onboarded.
+        </p>
+      )}
       {balance.pending > 0 && (
         <p className="text-xs text-ink-soft">{formatRupees(balance.pending)} requested and being processed.</p>
       )}

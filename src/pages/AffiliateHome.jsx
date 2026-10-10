@@ -5,6 +5,7 @@ import InstallCard from '../InstallCard.jsx'
 import Earnings from './Earnings.jsx'
 import Enquiries from './Enquiries.jsx'
 import Withdrawals from './Withdrawals.jsx'
+import Onboard from './Onboard.jsx'
 import { firebaseConfigured, loadAuth } from '../services/firebase.js'
 import {
   authErrorMessage, cleanOtp, formatMobile, normaliseIndianMobile, OTP_LENGTH,
@@ -291,6 +292,7 @@ function Dashboard({ fb, user }) {
     ['overview', 'Overview'],
     ['enquiries', `Enquiries${summary.enquiries ? ` (${summary.enquiries})` : ''}`],
     ['withdrawals', `Withdrawals${me.withdrawalCount ? ` (${me.withdrawalCount})` : ''}`],
+    ['onboard', 'Onboard'],
   ]
 
   return (
@@ -309,7 +311,7 @@ function Dashboard({ fb, user }) {
       </div>
 
       <div className="mb-5 flex items-center justify-between gap-3 lg:mb-8">
-        <div role="tablist" aria-label="Dashboard" className="grid flex-1 grid-cols-3 rounded-xl bg-paper-alt p-1 ring-1 ring-rule sm:flex-none">
+        <div role="tablist" aria-label="Dashboard" className="grid flex-1 grid-cols-2 gap-1 rounded-xl bg-paper-alt p-1 ring-1 ring-rule min-[420px]:grid-cols-4 sm:flex-none">
           {tabs.map(([key, label]) => (
             <button key={key} role="tab" aria-selected={view === key} onClick={() => go(key)}
               className={`min-h-11 rounded-lg px-2 text-sm font-medium transition sm:px-5 ${view === key ? 'bg-paper text-navy shadow-sm ring-1 ring-rule' : 'text-ink-soft hover:text-navy'}`}>
@@ -328,7 +330,11 @@ function Dashboard({ fb, user }) {
 
       {view === 'enquiries' ? (
         <div className="lg:max-w-3xl">
-          <Enquiries getToken={getToken} onSignedOut={signOut} />
+          <Enquiries getToken={getToken} onSignedOut={signOut} earned={summary.commissionEarned} />
+        </div>
+      ) : view === 'onboard' ? (
+        <div className="lg:max-w-3xl">
+          <Onboard me={me} getToken={getToken} onSignedOut={signOut} onChanged={refresh} />
         </div>
       ) : view === 'withdrawals' ? (
         <div className="lg:max-w-3xl">

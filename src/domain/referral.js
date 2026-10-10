@@ -157,9 +157,29 @@ export const withdrawalProblem = ({ upiId, amount, available }) => {
 
 // Which dashboard tab an address means, and the address of a tab. The tab lives
 // in the URL so the back button and a refresh both keep the affiliate in place.
-export const DASHBOARD_VIEWS = ['overview', 'enquiries', 'withdrawals']
+export const DASHBOARD_VIEWS = ['overview', 'enquiries', 'withdrawals', 'onboard']
 export const viewFor = (search) => {
   const v = new URLSearchParams(search ?? '').get('view')
   return DASHBOARD_VIEWS.includes(v) ? v : 'overview'
 }
 export const urlForView = (view) => (DASHBOARD_VIEWS.includes(view) && view !== 'overview' ? `/?view=${view}` : '/')
+
+// The first thing wrong with an onboarding form, or null. The proxy checks again.
+export const onboardProblem = ({ name, phone, consent }) => {
+  if (String(name ?? '').trim().length < 2) return 'Please enter their name.'
+  if (!normaliseIndianMobile(phone)) return 'Please enter their 10-digit Indian mobile number.'
+  if (consent !== true) return 'Please confirm they have agreed to join.'
+  return null
+}
+
+// A WhatsApp message straight to the person just onboarded, telling them which
+// number to sign in with, since that is what links them to whoever onboarded them.
+export const inviteWhatsappUrl = ({ phone, name, portalUrl }) => {
+  const e164 = normaliseIndianMobile(phone)
+  if (!e164) return null
+  const first = String(name ?? '').trim().split(/\s+/)[0]
+  const text = `Hi${first ? ` ${first}` : ''}, I've added you to the Sri Raja Bags partner programme. ` +
+    `You earn commission when businesses you introduce order custom-printed bags. Sign in at ${portalUrl} ` +
+    `with this number (${formatMobile(e164)}) to get your own referral link.`
+  return `https://wa.me/${e164.slice(1)}?text=${encodeURIComponent(text)}`
+}
