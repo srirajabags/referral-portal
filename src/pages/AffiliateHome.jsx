@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Alert, FactoryPhoto, Shell, Spinner, WhatsAppIcon } from '../components.jsx'
+import { Alert, FactoryPhoto, Shell, Spinner, WhatsAppIcon, useCooldown } from '../components.jsx'
 import { fetchMe } from '../services/api.js'
+import InstallCard from '../InstallCard.jsx'
+import Earnings from './Earnings.jsx'
+import Enquiries from './Enquiries.jsx'
+import Withdrawals from './Withdrawals.jsx'
 import { firebaseConfigured, loadAuth } from '../services/firebase.js'
 import {
-  authErrorMessage, cleanOtp, formatMobile, normaliseIndianMobile, OTP_LENGTH, whatsappShareUrl, shareMessage,
+  authErrorMessage, cleanOtp, formatMobile, normaliseIndianMobile, OTP_LENGTH,
+  whatsappShareUrl, shareMessage, urlForView, viewFor,
 } from '../domain/referral.js'
 
 const RESEND_AFTER_S = 30
@@ -189,6 +194,14 @@ function Dashboard({ fb, user }) {
   const [me, setMe] = useState(null)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [refreshError, setRefreshError] = useState('')
+  const [view, setView] = useState(() => viewFor(window.location.search))
+  // The server keeps an affiliate's data for a minute; refreshing sooner adds load, not news.
+  const [canRefresh, startCooldown] = useCooldown(60_000)
+
+  const signOut = useCallback(() => fb.sdk.signOut(fb.auth), [fb])
+  const getToken = useCallback(() => user.getIdToken(), [user])
 
   const load = useCallback(async () => {
     setError('')
@@ -196,11 +209,38 @@ function Dashboard({ fb, user }) {
       setMe(await fetchMe(await user.getIdToken()))
     } catch (err) {
       // A token the proxy will not take is no use to keep; start sign-in again.
-      if (err.status === 401) return fb.sdk.signOut(fb.auth)
+      if (err.status === 401) return signOut()
       setError(err.message)
     }
-  }, [fb, user])
+  }, [user, signOut])
+
+  // A failed refresh keeps what is on screen and says so, rather than blanking it.
+  const refresh = useCallback(async () => {
+    setRefreshing(true)
+    setRefreshError('')
+    try {
+      setMe(await fetchMe(await user.getIdToken()))
+    } catch (err) {
+      if (err.status === 401) return signOut()
+      setRefreshError(err.message)
+    } finally {
+      setRefreshing(false)
+    }
+  }, [user, signOut])
   useEffect(() => { load() }, [load])
+
+  // The tab is in the address, so the back button and a reload keep it.
+  useEffect(() => {
+    const onPop = () => setView(viewFor(window.location.search))
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+  const go = (next) => {
+    if (next === view) return
+    window.history.pushState(null, '', urlForView(next))
+    setView(next)
+    window.scrollTo({ top: 0 })
+  }
 
   const copy = async () => {
     try {
@@ -213,10 +253,8 @@ function Dashboard({ fb, user }) {
   }
   const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
 
-  const signOut = (
-    <button className="text-sm text-navy-soft underline underline-offset-2" onClick={() => fb.sdk.signOut(fb.auth)}>
-      Sign out
-    </button>
+  const signOutButton = (
+    <button className="text-sm text-navy-soft underline underline-offset-2" onClick={signOut}>Sign out</button>
   )
 
   if (error) {
@@ -225,12 +263,13 @@ function Dashboard({ fb, user }) {
         <div className="space-y-4">
           <Alert>{error}</Alert>
           <button className="btn-primary" onClick={load}>Try again</button>
-          <div className="text-center">{signOut}</div>
+          <div className="text-center">{signOutButton}</div>
         </div>
       </Shell>
     )
   }
   if (!me) return <Shell narrow><Spinner label="Getting your link…" /></Shell>
+  const summary = { enquiries: 0, inProgress: 0, ordersConfirmed: 0, commissionEarned: 0, ...me.summary }
 
   const shareButtons = (
     <>
@@ -248,6 +287,12 @@ function Dashboard({ fb, user }) {
     </>
   )
 
+  const tabs = [
+    ['overview', 'Overview'],
+    ['enquiries', `Enquiries${summary.enquiries ? ` (${summary.enquiries})` : ''}`],
+    ['withdrawals', `Withdrawals${me.withdrawalCount ? ` (${me.withdrawalCount})` : ''}`],
+  ]
+
   return (
     <Shell
       // Within thumb's reach on a phone. On a desktop the same buttons sit in
@@ -258,49 +303,106 @@ function Dashboard({ fb, user }) {
         </div>
       }
     >
-      <div className="mb-4 flex items-center justify-between text-sm text-ink-soft lg:mb-8">
+      <div className="mb-4 flex items-center justify-between text-sm text-ink-soft">
         <span>Signed in as <span className="font-medium text-ink">{formatMobile(me.phone)}</span></span>
-        {signOut}
+        {signOutButton}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-x-12 lg:gap-y-10">
-        <section className="card space-y-4 lg:col-start-1 lg:space-y-6 lg:p-8">
-          <div>
-            <p className="text-sm text-ink-soft">Your referral code</p>
-            <p className="font-mono text-3xl font-bold tracking-widest text-navy lg:text-5xl">{me.code}</p>
-          </div>
-          <button onClick={copy} className="w-full rounded-xl border border-dashed border-navy-soft/50 bg-paper-alt px-4 py-3 text-left hover:border-navy-soft">
-            <span className="block break-all font-mono text-sm text-navy lg:text-base">{me.link}</span>
-            <span className="mt-1 block text-xs font-medium text-navy-soft">{copied ? 'Copied ✓' : 'Copy link'}</span>
-          </button>
-          <div className="hidden max-w-md grid-cols-[1fr_auto] gap-2 lg:grid">{shareButtons}</div>
-          <p className="text-sm text-ink-soft">
-            Send this link to shop owners and buyers you know. When they enquire through it, the enquiry is recorded
-            against your code. It is yours for good: the same link every time you sign in.
-          </p>
-        </section>
-
-        <aside className="space-y-4 lg:col-start-2 lg:row-span-2 lg:row-start-1">
-          <section className="card space-y-1">
-            <h2 className="font-semibold text-navy">Coming soon</h2>
-            <p className="text-sm text-ink-soft">
-              Your enquiries and their progress, your commission, and withdrawals to UPI will appear here.
-            </p>
-          </section>
-          <section className="card hidden space-y-3 lg:block">
-            <h2 className="font-semibold text-navy">Questions?</h2>
-            <p className="text-sm text-ink-soft">Message us about the programme or a referral you have made.</p>
-            <a className="btn-ghost" href="https://wa.me/919177056061" target="_blank" rel="noopener">
-              <WhatsAppIcon /> WhatsApp us
-            </a>
-          </section>
-        </aside>
-
-        <div className="lg:col-start-1">
-          <HowItWorks />
+      <div className="mb-5 flex items-center justify-between gap-3 lg:mb-8">
+        <div role="tablist" aria-label="Dashboard" className="grid flex-1 grid-cols-3 rounded-xl bg-paper-alt p-1 ring-1 ring-rule sm:flex-none">
+          {tabs.map(([key, label]) => (
+            <button key={key} role="tab" aria-selected={view === key} onClick={() => go(key)}
+              className={`min-h-11 rounded-lg px-2 text-sm font-medium transition sm:px-5 ${view === key ? 'bg-paper text-navy shadow-sm ring-1 ring-rule' : 'text-ink-soft hover:text-navy'}`}>
+              {label}
+            </button>
+          ))}
         </div>
+        {view === 'overview' && (
+          <button className="hidden min-h-11 text-sm font-medium text-navy-soft disabled:opacity-50 sm:block"
+            disabled={refreshing || !canRefresh} onClick={() => { startCooldown(); refresh() }}>
+            {refreshing ? 'Refreshing…' : canRefresh ? 'Refresh' : 'Up to date'}
+          </button>
+        )}
       </div>
+      {refreshError && <div className="mb-4"><Alert>{refreshError}</Alert></div>}
+
+      {view === 'enquiries' ? (
+        <div className="lg:max-w-3xl">
+          <Enquiries getToken={getToken} onSignedOut={signOut} />
+        </div>
+      ) : view === 'withdrawals' ? (
+        <div className="lg:max-w-3xl">
+          <Withdrawals getToken={getToken} onSignedOut={signOut} />
+        </div>
+      ) : (
+        <>
+          <div className="mb-4 lg:mb-8 lg:max-w-[calc(100%-360px-3rem)]"><InstallCard /></div>
+
+          {/* Phone: link, counts, earnings, how it works. Desktop: the link and how it
+              works down the left; counts, earnings and help on the right. */}
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-x-12 lg:gap-y-8">
+            <section className="card space-y-4 lg:col-start-1 lg:self-start lg:space-y-6 lg:p-8">
+              <div>
+                <p className="text-sm text-ink-soft">Your referral code</p>
+                <p className="font-mono text-3xl font-bold tracking-widest text-navy lg:text-5xl">{me.code}</p>
+              </div>
+              <button onClick={copy} className="w-full rounded-xl border border-dashed border-navy-soft/50 bg-paper-alt px-4 py-3 text-left hover:border-navy-soft">
+                {/* A zero-width space before "?" gives the line one place to break, so a
+                    narrow phone never splits the code itself. Copying uses me.link as is. */}
+                <span className="block break-words font-mono text-sm text-navy lg:text-base">{me.link.replace('?', '\u200B?')}</span>
+                <span className="mt-1 block text-xs font-medium text-navy-soft">{copied ? 'Copied ✓' : 'Copy link'}</span>
+              </button>
+              <div className="hidden max-w-md grid-cols-[1fr_auto] gap-2 lg:grid">{shareButtons}</div>
+              <p className="text-sm text-ink-soft">
+                Send this link to shop owners and buyers you know. When they enquire through it, the enquiry is recorded
+                against your code. It is yours for good: the same link every time you sign in.
+              </p>
+            </section>
+
+            <aside className="space-y-4 lg:col-start-2 lg:row-span-2 lg:row-start-1">
+              <Counts summary={summary} onShowEnquiries={() => go('enquiries')} />
+              <Earnings me={me} getToken={getToken} onChanged={refresh} onShowHistory={() => go('withdrawals')} />
+              <section className="card hidden space-y-3 lg:block">
+                <h2 className="font-semibold text-navy">Questions?</h2>
+                <p className="text-sm text-ink-soft">Message us about the programme or a referral you have made.</p>
+                <a className="btn-ghost" href="https://wa.me/919177056061" target="_blank" rel="noopener">
+                  <WhatsAppIcon /> WhatsApp us
+                </a>
+              </section>
+            </aside>
+
+            <div className="lg:col-start-1">
+              <HowItWorks />
+            </div>
+          </div>
+        </>
+      )}
     </Shell>
+  )
+}
+
+function Counts({ summary, onShowEnquiries }) {
+  const tiles = [
+    ['Enquiries', summary.enquiries],
+    ['In progress', summary.inProgress],
+    ['Orders confirmed', summary.ordersConfirmed],
+  ]
+  return (
+    <div className="space-y-2">
+    <dl className="grid grid-cols-3 gap-2">
+      {tiles.map(([label, value]) => (
+        // column-reverse puts the number above the label; justify-end then packs both
+        // to the top, so the numbers line up even when one label wraps to two lines.
+        <div key={label} className="flex flex-col-reverse justify-end gap-0.5 rounded-2xl border border-rule bg-paper px-3 py-3 text-center">
+          <dt className="text-xs leading-tight text-ink-soft">{label}</dt>
+          <dd className="text-2xl font-bold text-navy">{value}</dd>
+        </div>
+      ))}
+    </dl>
+    {summary.enquiries > 0 && (
+      <button className="min-h-11 w-full text-sm font-medium text-navy-soft" onClick={onShowEnquiries}>See all enquiries →</button>
+    )}
+    </div>
   )
 }
 
@@ -310,7 +412,7 @@ function HowItWorks() {
   const steps = [
     ['Share your link', 'Send it to businesses that use carry bags: shops, supermarkets, restaurants, jewellers, event organisers.'],
     ['They enquire', 'They fill a short form or message us on WhatsApp. We take it from there.'],
-    ['They order, you earn', 'When their order is confirmed and paid, you earn commission on it.'],
+    ['They order, you earn', 'When their order is confirmed, you earn commission on the order value, and can withdraw it to UPI.'],
   ]
   return (
     <section className="mt-6 space-y-4 pb-4 lg:mt-0">
@@ -329,8 +431,9 @@ function HowItWorks() {
       <details className="card text-sm">
         <summary className="min-h-6 cursor-pointer font-medium text-navy">Programme terms (pilot)</summary>
         <ul className="mt-3 list-disc space-y-2 pl-5 text-ink-soft">
-          <li>This is a pilot. Commission rates and payout rules are being finalised, and we will confirm them with you before your first commission is credited.</li>
-          <li>Commission is earned on confirmed, paid orders, not on clicks or enquiries alone.</li>
+          <li>Commission is a share of the order value of each confirmed order our team links to your referral: one rate for the customer's first order, another for repeat orders. Your tier and its rates are shown on your dashboard.</li>
+          <li>Withdraw your current balance to UPI whenever you like. Our team pays each request and updates it with the payment reference.</li>
+          <li>Commission is earned on confirmed orders, not on clicks or enquiries alone.</li>
           <li>Businesses that are already our customers, or that someone else introduced first, may not qualify.</li>
           <li>Only share a buyer's details with their permission.</li>
           <li>Questions? Message us on WhatsApp at +91 91770 56061.</li>

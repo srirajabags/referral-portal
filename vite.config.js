@@ -2,13 +2,13 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
-import { copyFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import process from 'node:process'
 
-// GitHub Pages serves files, not routes: /r/K7M2QX9 is not a file, so Pages
-// answers with 404.html. Publishing index.html as 404.html as well means a
-// referral link loads the app, which reads the code out of the URL. Copied after
+// GitHub Pages serves files, not routes: an unknown path such as an old-style
+// /r/K7M2QX9 link gets 404.html. Publishing index.html as 404.html as well means
+// such a link still loads the app, which reads the code out of the URL. Copied after
 // the build so it always points at the same hashed assets.
 const spaFallback = () => ({
   name: 'spa-404-fallback',
@@ -16,6 +16,10 @@ const spaFallback = () => ({
   closeBundle() {
     const out = resolve(process.cwd(), 'dist')
     copyFileSync(resolve(out, 'index.html'), resolve(out, '404.html'))
+    // Referral links are shared as /r/?c=CODE. Pages serves r/index.html for
+    // that with a 200, which link previews need; the 404 fallback would not do.
+    mkdirSync(resolve(out, 'r'), { recursive: true })
+    copyFileSync(resolve(out, 'index.html'), resolve(out, 'r', 'index.html'))
   },
 })
 
@@ -28,6 +32,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.png', 'apple-touch-icon.png', 'fonts/*.woff2'],
       manifest: {
+        // A fixed identity, so a later change to start_url is the same installed app.
+        id: '/',
         name: 'Sri Raja Bags Partners',
         short_name: 'SRB Partners',
         description: 'Earn by connecting businesses to our bag factory.',

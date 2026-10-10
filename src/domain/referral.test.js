@@ -2,10 +2,16 @@ import { describe, it, expect } from 'vitest'
 import {
   normaliseCode, routeFor, normaliseIndianMobile, formatMobile, cleanOtp,
   shareMessage, whatsappShareUrl, whatsappEnquiryUrl, authErrorMessage, enquiryProblem, smsLanguage,
+  formatEnquiryDate, formatRupees, formatPercent, normaliseUpiId, withdrawalProblem, viewFor, urlForView,
 } from './referral.js'
 
 describe('routeFor — a shared link lands on the right screen', () => {
-  it('reads the code out of /r/CODE, however it was typed', () => {
+  it('reads the code from /r/?c=CODE, the form links are shared in', () => {
+    // A real file on Pages, so WhatsApp gets a 200 and draws a preview.
+    expect(routeFor('/r/', '?c=K7M2QX9')).toEqual({ page: 'referral', code: 'K7M2QX9' })
+    expect(routeFor('/r', '?c=k7m-2qx9&utm_source=whatsapp')).toEqual({ page: 'referral', code: 'K7M2QX9' })
+  })
+  it('still honours old /r/CODE links, however they were typed', () => {
     expect(routeFor('/r/K7M2QX9')).toEqual({ page: 'referral', code: 'K7M2QX9' })
     expect(routeFor('/r/k7m2qx9/')).toEqual({ page: 'referral', code: 'K7M2QX9' })
     expect(routeFor('/r/K7M-2QX9')).toEqual({ page: 'referral', code: 'K7M2QX9' })
@@ -14,9 +20,12 @@ describe('routeFor — a shared link lands on the right screen', () => {
     // A buyer who lands on "enter your phone to earn commission" would be lost.
     expect(routeFor('/r/K7M2Q')).toEqual({ page: 'bad-link' })
     expect(routeFor('/r/%E0%A4')).toEqual({ page: 'bad-link' })
+    expect(routeFor('/r/', '?c=K7M2Q')).toEqual({ page: 'bad-link' })
+    expect(routeFor('/r/', '')).toEqual({ page: 'bad-link' })
+    expect(routeFor('/r/', '?c=%E0%A4')).toEqual({ page: 'bad-link' })
   })
   it('sends everything else home', () => {
-    for (const p of ['/', '', '/anything', '/r/', '/r/K7M2QX9/extra']) expect(routeFor(p).page).toBe('home')
+    for (const p of ['/', '', '/anything', '/r/K7M2QX9/extra']) expect(routeFor(p).page).toBe('home')
   })
 })
 
@@ -90,5 +99,66 @@ describe('smsLanguage — a browser language must never block sign-in', () => {
   })
   it('falls back to Firebase\'s default when there is nothing usable', () => {
     for (const tag of ['', null, undefined, 'C', 'POSIX', '*']) expect(smsLanguage(tag)).toBe(null)
+  })
+})
+
+describe('formatEnquiryDate — dates as an Indian affiliate reads them', () => {
+  it('shows the IST date, even when UTC has not reached that day yet', () => {
+    // 10 Oct 2026, 00:30 IST is still 9 Oct in UTC.
+    expect(formatEnquiryDate(Date.UTC(2026, 9, 9, 19, 0) / 1000)).toBe('10 Oct 2026')
+  })
+  it('shows nothing rather than a nonsense date when there is none', () => {
+    for (const v of [null, undefined, 0, NaN, 'x']) expect(formatEnquiryDate(v)).toBe('')
+  })
+})
+
+describe('formatRupees — commission as an Indian affiliate reads it', () => {
+  it('groups digits the Indian way and drops paise when there are none', () => {
+    expect(formatRupees(1500)).toBe('₹1,500')
+    expect(formatRupees(123456)).toBe('₹1,23,456')
+    expect(formatRupees(0)).toBe('₹0')
+  })
+  it('shows paise when the 1% leaves some', () => {
+    expect(formatRupees(34.5)).toBe('₹34.50')
+    expect(formatRupees(1534.49999999)).toBe('₹1,534.50')
+  })
+  it('never prints NaN', () => {
+    for (const v of [null, undefined, 'x', NaN]) expect(formatRupees(v)).toBe('₹0')
+  })
+})
+
+describe('formatPercent — tier rates as people say them', () => {
+  it('drops needless decimals', () => {
+    expect(formatPercent(0.01)).toBe('1%')
+    expect(formatPercent(0.005)).toBe('0.5%')
+    expect(formatPercent(0.0125)).toBe('1.25%')
+  })
+})
+
+describe('withdrawal requests — told at once, checked again by the proxy', () => {
+  it('accepts a UPI ID in any case, as the proxy does', () => {
+    expect(normaliseUpiId(' Ravi@OKSBI ')).toBe('ravi@oksbi')
+    expect(normaliseUpiId('ravi')).toBe(null)
+  })
+  it('names the first thing to fix', () => {
+    const ok = { upiId: 'a@ybl', amount: '100', available: 263 }
+    expect(withdrawalProblem(ok)).toBe(null)
+    expect(withdrawalProblem({ ...ok, upiId: 'nope' })).toMatch(/UPI ID/)
+    expect(withdrawalProblem({ ...ok, amount: '' })).toMatch(/amount/)
+    expect(withdrawalProblem({ ...ok, amount: '263.01' })).toMatch(/more than/)
+    expect(withdrawalProblem({ ...ok, amount: '263' })).toBe(null)
+  })
+})
+
+describe('dashboard tabs live in the address', () => {
+  it('reads the tab, defaulting to the overview for anything unknown', () => {
+    expect(viewFor('?view=enquiries')).toBe('enquiries')
+    expect(viewFor('?view=withdrawals')).toBe('withdrawals')
+    for (const q of ['', '?view=nope', '?x=1', undefined]) expect(viewFor(q)).toBe('overview')
+  })
+  it('round-trips, so back and refresh land on the same tab', () => {
+    for (const v of ['overview', 'enquiries', 'withdrawals']) expect(viewFor(urlForView(v).split('/')[1])).toBe(v)
+    expect(urlForView('nonsense')).toBe('/')
+    expect(routeFor('/', '?view=enquiries').page).toBe('home')
   })
 })

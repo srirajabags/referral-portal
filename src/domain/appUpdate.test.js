@@ -31,6 +31,7 @@ describe('updateModeFor — who gets a blocking notice', () => {
   it('never puts a version notice in front of a buyer on a referral link', () => {
     expect(updateModeFor('/r/K7M2QX9')).toBe('on-arrival')
     expect(updateModeFor('/r/broken')).toBe('on-arrival')
+    expect(updateModeFor('/r/')).toBe('on-arrival')
   })
 })
 

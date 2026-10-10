@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { RUNNING_BUILD } from './services/appUpdate.js'
 
 // Page frame shared by every screen. Phone width is the design baseline; from
@@ -7,7 +8,8 @@ export function Shell({ children, footer, subtitle = 'Partner programme', narrow
   const main = narrow ? 'max-w-md lg:py-16' : 'max-w-md md:max-w-2xl md:py-10 lg:max-w-6xl lg:px-8 lg:py-14'
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="bg-navy text-white">
+      {/* Installed on iOS, the status bar sits over the page; pad by the notch. */}
+      <header className="bg-navy pt-[env(safe-area-inset-top)] text-white">
         <div className="mx-auto flex w-full max-w-md items-center gap-3 px-4 py-3 md:max-w-2xl lg:max-w-6xl lg:px-8 lg:py-4">
           <img src="/pwa-192x192.png" alt="" width="40" height="40" className="size-9 rounded-lg bg-white p-0.5 lg:size-10" />
           <div className="leading-tight">
@@ -64,4 +66,16 @@ export function FactoryPhoto({ className = '' }) {
       <figcaption className="mt-2 text-xs text-ink-soft">Our production line in Dhone, Andhra Pradesh</figcaption>
     </figure>
   )
+}
+
+// A button that may only be pressed once per `ms`: [canPress, start]. Refreshing
+// sooner than the server's cache can change would only add load, not news.
+export function useCooldown(ms) {
+  const [until, setUntil] = useState(0)
+  useEffect(() => {
+    if (!until) return undefined
+    const t = setTimeout(() => setUntil(0), Math.max(0, until - Date.now()))
+    return () => clearTimeout(t)
+  }, [until])
+  return [until === 0, () => setUntil(Date.now() + ms)]
 }

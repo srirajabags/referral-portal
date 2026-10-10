@@ -9,7 +9,7 @@ const AffiliateHome = lazy(() => import('./pages/AffiliateHome.jsx'))
 const ReferralLanding = lazy(() => import('./pages/ReferralLanding.jsx'))
 
 export default function App() {
-  const route = routeFor(window.location.pathname)
+  const route = routeFor(window.location.pathname, window.location.search)
   return (
     <Suspense fallback={<Shell><Spinner /></Shell>}>
       {route.page === 'referral' && <ReferralLanding code={route.code} />}

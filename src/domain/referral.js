@@ -16,16 +16,22 @@ export const normaliseCode = (raw) => {
   return clean
 }
 
-// Which screen a URL means. GitHub Pages serves every unknown path from
-// 404.html, so /r/K7M2QX9 arrives here as a path to read, not a file.
-export const routeFor = (pathname) => {
+// Which screen a URL means. Links are shared as /r/?c=CODE: r/index.html is a
+// real file on Pages, so a link preview crawler gets a 200. Older /r/CODE links
+// still work in a browser, through the 404.html fallback.
+const safeDecode = (s) => { try { return decodeURIComponent(s) } catch { return null } }
+
+export const routeFor = (pathname, search = '') => {
+  if (/^\/r\/?$/.test(pathname || '')) {
+    const raw = new URLSearchParams(search).get('c')
+    const code = raw === null ? null : normaliseCode(raw)
+    return code ? { page: 'referral', code } : { page: 'bad-link' }
+  }
   const m = /^\/r\/([^/]+)\/?$/.exec(pathname || '')
   if (m) {
-    // A link cut short mid-escape ("%E0%A4") makes decodeURIComponent throw;
-    // that is a bad link, not a crash.
-    let raw
-    try { raw = decodeURIComponent(m[1]) } catch { return { page: 'bad-link' } }
-    const code = normaliseCode(raw)
+    // A link cut short mid-escape ("%E0%A4") is a bad link, not a crash.
+    const raw = safeDecode(m[1])
+    const code = raw === null ? null : normaliseCode(raw)
     return code ? { page: 'referral', code } : { page: 'bad-link' }
   }
   return { page: 'home' }
@@ -109,3 +115,51 @@ export const smsLanguage = (tag) => {
   if (full.length <= 6 && /^[a-zA-Z0-9-]+$/.test(full)) return full
   return parts[0].toLowerCase()
 }
+
+// When an enquiry came in, as an Indian reader writes a date: "10 Oct 2026".
+// Always IST, whatever timezone the phone is set to.
+const ENQUIRY_DATE = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })
+export const formatEnquiryDate = (unixSeconds) =>
+  Number.isFinite(unixSeconds) && unixSeconds > 0 ? ENQUIRY_DATE.format(new Date(unixSeconds * 1000)) : ''
+
+// Rupees as an Indian reader writes them: "₹1,500", "₹1,23,456", and paise only
+// when there are some ("₹34.50").
+const RUPEES = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })
+const RUPEES_PAISE = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 })
+export const formatRupees = (amount) => {
+  const n = Number(amount)
+  if (!Number.isFinite(n)) return RUPEES.format(0)
+  return Number.isInteger(Math.round(n * 100) / 100) ? RUPEES.format(n) : RUPEES_PAISE.format(n)
+}
+
+// A tier rate as a person says it: 0.01 -> "1%", 0.005 -> "0.5%".
+export const formatPercent = (rate) => {
+  const n = Number(rate)
+  if (!Number.isFinite(n)) return ''
+  return `${Math.round(n * 10000) / 100}%`
+}
+
+// UPI IDs as the proxy accepts them (normaliseUpiId there): name@handle, one case.
+export const normaliseUpiId = (raw) => {
+  const v = String(raw ?? '').trim().toLowerCase()
+  return /^[a-z0-9][a-z0-9._-]{0,255}@[a-z][a-z0-9]{1,63}$/.test(v) ? v : null
+}
+
+// The first thing wrong with a withdrawal request, or null. The proxy checks
+// again; this is so the person hears about it before pressing anything twice.
+export const withdrawalProblem = ({ upiId, amount, available }) => {
+  if (!normaliseUpiId(upiId)) return 'Please enter a valid UPI ID, like name@okhdfcbank.'
+  const n = Number(amount)
+  if (!Number.isFinite(n) || n <= 0) return 'Please enter an amount to withdraw.'
+  if (Math.round(n * 100 + 1e-6) / 100 > available) return 'That is more than your current balance.'
+  return null
+}
+
+// Which dashboard tab an address means, and the address of a tab. The tab lives
+// in the URL so the back button and a refresh both keep the affiliate in place.
+export const DASHBOARD_VIEWS = ['overview', 'enquiries', 'withdrawals']
+export const viewFor = (search) => {
+  const v = new URLSearchParams(search ?? '').get('view')
+  return DASHBOARD_VIEWS.includes(v) ? v : 'overview'
+}
+export const urlForView = (view) => (DASHBOARD_VIEWS.includes(view) && view !== 'overview' ? `/?view=${view}` : '/')

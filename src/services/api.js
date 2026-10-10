@@ -30,3 +30,28 @@ const call = async (path, { method = 'GET', token, body } = {}) => {
 export const fetchMe = (idToken) => call('/me', { method: 'POST', token: idToken })
 export const checkCode = (code) => call(`/public/r/${encodeURIComponent(code)}`)
 export const sendEnquiry = (enquiry) => call('/public/enquiry', { method: 'POST', body: enquiry })
+
+export const requestWithdrawal = (idToken, { upiId, amount }) =>
+  call('/me/withdrawals', { method: 'POST', token: idToken, body: { upiId, amount: Number(amount) } })
+
+// The payment screenshot staff attached. Fetched with the sign-in token (an <img>
+// cannot send one) and handed back as a blob for an object URL.
+export const fetchPaymentScreenshot = async (idToken, ref) => {
+  if (!BASE) throw new ApiError('The portal is not connected yet.', 0)
+  let res
+  try {
+    res = await fetch(`${BASE}/me/withdrawals/${encodeURIComponent(ref)}/screenshot`, {
+      headers: { Authorization: `Bearer ${idToken}` },
+    })
+  } catch {
+    throw new ApiError('No connection. Please check your internet and try again.', 0)
+  }
+  if (!res.ok) throw new ApiError((await res.json().catch(() => ({}))).error || 'Could not load the screenshot.', res.status)
+  return res.blob()
+}
+
+// One page of the signed-in affiliate's enquiries: { items, page, pages, pageSize, total }.
+export const fetchEnquiries = (idToken, page) => call(`/me/enquiries?page=${encodeURIComponent(page)}`, { token: idToken })
+
+// One page of the signed-in affiliate's withdrawal history: { items, page, pages, pageSize, total }.
+export const fetchWithdrawals = (idToken, page) => call(`/me/withdrawals?page=${encodeURIComponent(page)}`, { token: idToken })

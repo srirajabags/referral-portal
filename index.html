@@ -4,6 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#05386b" />
+    <!-- Launched from the home screen, open full screen with no browser bars. iOS
+         reads these; Android reads display: standalone from the manifest. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="SRB Partners" />
+    <!-- Content runs under the status bar, which shows over the navy header;
+         the header pads itself by the safe-area inset. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="preload" href="/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
@@ -15,7 +23,13 @@
     <meta property="og:site_name" content="Sri Raja Bags" />
     <meta property="og:title" content="Custom-printed non-woven bags — Sri Raja Bags" />
     <meta property="og:description" content="Bulk non-woven bags printed with your shop name and logo, made in our own factory. Send an enquiry and we'll call you back." />
-    <meta property="og:image" content="https://refer.srirajabags.in/pwa-512x512.png" />
+    <!-- 1200x630 and under 300 KB: what WhatsApp needs to draw the large card. -->
+    <meta property="og:image" content="https://refer.srirajabags.in/og-image.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Bag-making machines on the Sri Raja Bags factory floor" />
+    <meta name="twitter:card" content="summary_large_image" />
   </head>
   <body>
     <div id="root"></div>
