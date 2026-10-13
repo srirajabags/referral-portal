@@ -102,6 +102,17 @@ export const enquiryProblem = ({ businessName, phone, consent }) => {
   return null
 }
 
+// A lead an affiliate adds from their dashboard, checked before it is sent
+// (the proxy checks again). ownPhone: the affiliate's own +91 number.
+export const leadProblem = ({ businessName, phone, consent }, ownPhone) => {
+  if (String(businessName ?? '').trim().length < 2) return 'Please enter the business name.'
+  const mobile = normaliseIndianMobile(phone)
+  if (!mobile) return 'Please enter their 10-digit Indian mobile number.'
+  if (ownPhone && mobile === ownPhone) return "That is your own number. Add the buyer's number instead."
+  if (consent !== true) return 'Please confirm they have agreed to be contacted by Sri Raja Bags.'
+  return null
+}
+
 // The language Firebase sends the SMS in. Firebase's own useDeviceLanguage()
 // hands the browser's tag straight to reCAPTCHA, which refuses anything over six
 // characters -- so a browser reporting "zh-Hant-TW", or a Linux one reporting
@@ -200,6 +211,14 @@ export const inviteWhatsappUrl = ({ phone, name, portalUrl }) => {
     `You earn commission when businesses you introduce order custom-printed bags. Sign in at ${portalUrl} ` +
     `with this number (${formatMobile(e164)}) to get your own referral link.`
   return `https://wa.me/${e164.slice(1)}?text=${encodeURIComponent(text)}`
+}
+
+// A reminder beside someone onboarded who has not signed in after a few days.
+const INVITE_NUDGE_DAYS = 3
+export const inviteNudge = ({ joined, onboardedAt }, nowMs = Date.now()) => {
+  if (joined || !onboardedAt) return null
+  const days = Math.floor((nowMs - onboardedAt * 1000) / 86_400_000)
+  return days >= INVITE_NUDGE_DAYS ? `Not joined yet, ${days} days after you added them. Send the invite again?` : null
 }
 
 // What an affiliate's lead-quality rating means, in one sentence.

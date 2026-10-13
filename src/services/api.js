@@ -30,6 +30,8 @@ const call = async (path, { method = 'GET', token, body } = {}) => {
 export const fetchMe = (idToken) => call('/me', { method: 'POST', token: idToken })
 export const checkCode = (code) => call(`/public/r/${encodeURIComponent(code)}`)
 export const sendEnquiry = (enquiry) => call('/public/enquiry', { method: 'POST', body: enquiry })
+// A lead the signed-in affiliate adds themselves.
+export const addLead = (idToken, lead) => call('/me/leads', { method: 'POST', token: idToken, body: lead })
 
 export const requestWithdrawal = (idToken, { upiId, amount }) =>
   call('/me/withdrawals', { method: 'POST', token: idToken, body: { upiId, amount: Number(amount) } })

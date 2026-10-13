@@ -348,7 +348,8 @@ function Dashboard({ fb, user }) {
 
       {view === 'enquiries' ? (
         <div className="lg:max-w-3xl">
-          <Enquiries getToken={getToken} onSignedOut={signOut} earned={summary.commissionEarned} />
+          <Enquiries getToken={getToken} onSignedOut={signOut} earned={summary.commissionEarned}
+            ownPhone={me.phone} onHold={onHold} onChanged={refresh} />
         </div>
       ) : view === 'onboard' ? (
         <div className="lg:max-w-3xl">

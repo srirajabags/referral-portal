@@ -3,7 +3,7 @@ import {
   normaliseCode, routeFor, normaliseIndianMobile, formatMobile, cleanOtp,
   shareMessage, whatsappShareUrl, whatsappEnquiryUrl, authErrorMessage, enquiryProblem, smsLanguage,
   formatEnquiryDate, formatRupees, formatPercent, normaliseUpiId, withdrawalProblem, viewFor, urlForView,
-  onboardProblem, inviteWhatsappUrl, leadQualityText, validityText, expiryNotice,
+  onboardProblem, inviteWhatsappUrl, leadQualityText, validityText, expiryNotice, leadProblem, inviteNudge,
 } from './referral.js'
 
 describe('routeFor — a shared link lands on the right screen', () => {
@@ -219,5 +219,33 @@ describe('commission expiry, in words', () => {
   it('says nothing when nothing is due to expire', () => {
     expect(expiryNotice(null, NOW)).toBeNull()
     expect(expiryNotice({ amount: 0, at: at(5) }, NOW)).toBeNull()
+  })
+})
+
+describe('leadProblem — a lead an affiliate adds, checked before it is sent', () => {
+  const ok = { businessName: 'Ravi Traders', phone: '91234 56780', consent: true }
+  it('accepts a complete lead', () => {
+    expect(leadProblem(ok, '+919876543210')).toBeNull()
+  })
+  it('asks for what is missing, in their terms', () => {
+    expect(leadProblem({ ...ok, businessName: ' ' })).toBe("Please enter the business name.")
+    expect(leadProblem({ ...ok, phone: '12345' })).toBe('Please enter their 10-digit Indian mobile number.')
+    expect(leadProblem({ ...ok, consent: false })).toBe('Please confirm they have agreed to be contacted by Sri Raja Bags.')
+  })
+  it('turns away their own number', () => {
+    expect(leadProblem({ ...ok, phone: '98765 43210' }, '+919876543210')).toBe('That is your own number. Add the buyer\'s number instead.')
+  })
+})
+
+describe('inviteNudge — someone onboarded who has not signed in yet', () => {
+  const NOW = Date.UTC(2026, 9, 13, 12, 0)
+  const daysAgo = (d) => Math.floor(NOW / 1000) - d * 86400
+  it('says nothing for the first couple of days, or once they have joined', () => {
+    expect(inviteNudge({ joined: false, onboardedAt: daysAgo(2) }, NOW)).toBeNull()
+    expect(inviteNudge({ joined: true, onboardedAt: daysAgo(30) }, NOW)).toBeNull()
+    expect(inviteNudge({ joined: false, onboardedAt: null }, NOW)).toBeNull()
+  })
+  it('prompts a reminder after three days', () => {
+    expect(inviteNudge({ joined: false, onboardedAt: daysAgo(5) }, NOW)).toBe('Not joined yet, 5 days after you added them. Send the invite again?')
   })
 })

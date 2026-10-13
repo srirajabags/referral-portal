@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Alert, Spinner, WhatsAppIcon, useCooldown } from '../components.jsx'
 import { fetchOnboarded, onboardAffiliate } from '../services/api.js'
 import { track } from '../services/analytics.js'
-import { formatEnquiryDate, formatPercent, formatRupees, inviteWhatsappUrl, onboardProblem } from '../domain/referral.js'
+import { formatEnquiryDate, formatMobile, formatPercent, formatRupees, inviteNudge, inviteWhatsappUrl, onboardProblem } from '../domain/referral.js'
 
 // The Onboard tab: bring someone else into the programme and earn a share, on
 // top, of everything they earn, for life. They are added with their own code and
@@ -76,13 +76,28 @@ export default function Onboard({ me, getToken, onSignedOut, onChanged, onHold =
           {earned > 0 && <EarnedChip label="Earned from people you onboarded" amount={earned} />}
         </div>
 
+        {/* How it works, before the form: the invite is the affiliate's to send. */}
+        <ol className="grid gap-2 text-sm sm:grid-cols-3">
+          {[
+            ['Add their details', 'Their name and mobile number, with their agreement.'],
+            ['Send them the invite', 'A WhatsApp message from you, with the link to this portal.'],
+            ['They sign in', `With that same number, and get their own referral link.${share > 0 ? ` You earn ${formatPercent(share)} on top of what they earn.` : ''}`],
+          ].map(([title, body], i) => (
+            <li key={title} className="flex gap-3 rounded-xl bg-paper-alt p-3">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-mint-pale text-sm font-semibold text-navy">{i + 1}</span>
+              <span><span className="block font-medium text-navy-deep">{title}</span><span className="text-ink-soft">{body}</span></span>
+            </li>
+          ))}
+        </ol>
+
         {onHold ? (
           <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-900">Onboarding is paused while your account is on hold.</p>
         ) : added ? (
           <div className="space-y-3 rounded-xl bg-mint-pale px-4 py-4" role="status">
-            <p className="font-medium text-navy-deep">{added.name} has been added.</p>
+            <p className="font-medium text-navy-deep">{added.name} has been added. Now send them the invite.</p>
             <p className="text-sm text-navy">
-              Send them the invite. They join when they sign in with the number you entered, and their link is ready for them.
+              They join when they sign in with the number you entered, and their link is ready for them. You can also send
+              the invite later from the list below.
             </p>
             {invite && (
               <a className="btn-whatsapp" href={invite} target="_blank" rel="noopener"><WhatsAppIcon /> Send the invite on WhatsApp</a>
@@ -132,22 +147,35 @@ export default function Onboard({ me, getToken, onSignedOut, onChanged, onHold =
         {!data && !listError ? <Spinner label="Loading…" /> : data?.items.length ? (
           <>
             <ul className={`divide-y divide-rule transition-opacity ${loading ? 'opacity-50' : ''}`}>
-              {data.items.map((p, i) => (
-                <li key={`${p.phone}-${i}`} className="flex flex-col gap-1.5 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                  <div className="min-w-0">
-                    <p className="font-medium break-words">{p.name}</p>
-                    <p className="text-xs text-ink-soft">
-                      <span className="font-mono">{p.phone}</span> · Added {formatEnquiryDate(p.onboardedAt)}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`w-fit shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${p.joined ? 'bg-mint-pale text-navy-deep' : 'bg-navy/5 text-navy'}`}>
-                      {p.joined ? 'Joined' : 'Invited'}
-                    </span>
-                    {p.earnedForYou > 0 && <span className="text-sm font-semibold text-navy-deep">{formatRupees(p.earnedForYou)}</span>}
-                  </div>
-                </li>
-              ))}
+              {data.items.map((p, i) => {
+                const resend = !p.joined && inviteWhatsappUrl({ phone: p.phone, name: p.name, portalUrl: window.location.origin })
+                const nudge = inviteNudge(p)
+                return (
+                  <li key={`${p.phone}-${i}`} className="space-y-2 py-3">
+                    <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                      <div className="min-w-0">
+                        <p className="font-medium break-words">{p.name}</p>
+                        <p className="text-xs text-ink-soft">
+                          <span className="font-mono">{formatMobile(p.phone)}</span> · Added {formatEnquiryDate(p.onboardedAt)}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`w-fit shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${p.joined ? 'bg-mint-pale text-navy-deep' : 'bg-navy/5 text-navy'}`}>
+                          {p.joined ? 'Joined' : 'Invited, not joined yet'}
+                        </span>
+                        {p.earnedForYou > 0 && <span className="text-sm font-semibold text-navy-deep">{formatRupees(p.earnedForYou)}</span>}
+                      </div>
+                    </div>
+                    {nudge && <p className="text-xs text-amber-900">{nudge}</p>}
+                    {resend && !onHold && (
+                      <a className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-rule px-4 text-sm font-medium text-navy hover:bg-paper-alt"
+                        href={resend} target="_blank" rel="noopener">
+                        <WhatsAppIcon /> Send the invite again
+                      </a>
+                    )}
+                  </li>
+                )
+              })}
             </ul>
             {data.pages > 1 && (
               <nav className="flex items-center justify-between gap-2 border-t border-rule pt-3" aria-label="Pages">
