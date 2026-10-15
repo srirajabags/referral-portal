@@ -6,7 +6,7 @@ import { expiryNotice, formatPercent, formatRupees, validityText, withdrawalProb
 
 // Tier, what has been earned and paid, and asking for the rest by UPI. The
 // history of requests, and what became of each, is the Withdrawals tab.
-export default function Earnings({ me, getToken, onChanged, onShowHistory, onHold = false }) {
+export default function Earnings({ me, getToken, onChanged, onShowHistory, onHold = false, viewOnly = false }) {
   const balance = { earned: 0, paid: 0, pending: 0, expired: 0, available: 0, ...me.balance }
   const validity = validityText(me.tier?.validityMonths)
   const notice = expiryNotice(me.nextExpiry)
@@ -86,7 +86,7 @@ export default function Earnings({ me, getToken, onChanged, onShowHistory, onHol
       )}
 
       {onHold ? (
-        <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-900">Withdrawals are paused while your account is on hold.</p>
+        <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-900">{viewOnly ? "View only: you are viewing someone else's account." : 'Withdrawals are paused while your account is on hold.'}</p>
       ) : inProgress ? (
         <p role="status" className="rounded-xl bg-navy/5 px-4 py-3 text-sm text-navy">
           {sent ? 'Request sent. ' : ''}Your withdrawal {inProgress.ref} of {formatRupees(inProgress.amount)} to{' '}

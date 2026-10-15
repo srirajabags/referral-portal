@@ -102,6 +102,10 @@ export const enquiryProblem = ({ businessName, phone, consent }) => {
   return null
 }
 
+// "View as": whom one of Sri Raja Bags' own numbers asked to view the portal as,
+// by referral code or mobile number. The backend decides who may.
+export const viewAsTarget = (raw) => normaliseCode(raw) || normaliseIndianMobile(raw) || null
+
 // A lead an affiliate adds from their dashboard, checked before it is sent
 // (the proxy checks again). ownPhone: the affiliate's own +91 number.
 export const leadProblem = ({ businessName, phone, consent }, ownPhone) => {

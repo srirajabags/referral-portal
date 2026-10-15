@@ -3,7 +3,7 @@ import {
   normaliseCode, routeFor, normaliseIndianMobile, formatMobile, cleanOtp,
   shareMessage, whatsappShareUrl, whatsappEnquiryUrl, authErrorMessage, enquiryProblem, smsLanguage,
   formatEnquiryDate, formatRupees, formatPercent, normaliseUpiId, withdrawalProblem, viewFor, urlForView,
-  onboardProblem, inviteWhatsappUrl, leadQualityText, validityText, expiryNotice, leadProblem, inviteNudge,
+  onboardProblem, inviteWhatsappUrl, leadQualityText, validityText, expiryNotice, leadProblem, inviteNudge, viewAsTarget,
 } from './referral.js'
 
 describe('routeFor — a shared link lands on the right screen', () => {
@@ -247,5 +247,15 @@ describe('inviteNudge — someone onboarded who has not signed in yet', () => {
   })
   it('prompts a reminder after three days', () => {
     expect(inviteNudge({ joined: false, onboardedAt: daysAgo(5) }, NOW)).toBe('Not joined yet, 5 days after you added them. Send the invite again?')
+  })
+})
+
+describe('viewAsTarget — whom an impersonator asked to view as', () => {
+  it('takes a referral code or a mobile number, tidied', () => {
+    expect(viewAsTarget(' np217wz ')).toBe('NP217WZ')
+    expect(viewAsTarget('91234 56780')).toBe('+919123456780')
+  })
+  it('turns down anything else', () => {
+    for (const v of ['', 'abc', '12345', null]) expect(viewAsTarget(v)).toBeNull()
   })
 })

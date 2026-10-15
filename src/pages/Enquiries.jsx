@@ -9,7 +9,7 @@ import { EarnedChip } from './Onboard.jsx'
 // first. A link enquiry is a masked phone and the affiliate's own reference,
 // nothing else that identifies the buyer; a lead they added shows the number
 // they gave.
-export default function Enquiries({ getToken, onSignedOut, earned = 0, ownPhone = '', onHold = false, onChanged = () => {} }) {
+export default function Enquiries({ getToken, onSignedOut, earned = 0, ownPhone = '', onHold = false, viewOnly = false, onChanged = () => {} }) {
   const [page, setPage] = useState(1)
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
@@ -53,7 +53,7 @@ export default function Enquiries({ getToken, onSignedOut, earned = 0, ownPhone 
       </div>
       {/* What all of these enquiries have earned, before reading the rows. */}
       <EarnedChip label="Total commission earned" amount={earned} />
-      <AddLead getToken={getToken} onSignedOut={onSignedOut} ownPhone={ownPhone} onHold={onHold}
+      <AddLead getToken={getToken} onSignedOut={onSignedOut} ownPhone={ownPhone} onHold={onHold} viewOnly={viewOnly}
         onAdded={() => { if (page === 1) load(1); else setPage(1); onChanged() }} />
       {error && <Alert>{error}</Alert>}
 
@@ -146,7 +146,7 @@ function Commission({ amount, expired = 0 }) {
 // "Add a lead": for someone the affiliate knows who needs bags and has agreed to
 // be contacted. It goes to our team like an enquiry through their link.
 const EMPTY_LEAD = { businessName: '', contactName: '', phone: '', city: '', requirement: '', consent: false }
-function AddLead({ getToken, onSignedOut, ownPhone, onHold, onAdded }) {
+function AddLead({ getToken, onSignedOut, ownPhone, onHold, viewOnly, onAdded }) {
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState(EMPTY_LEAD)
   const [busy, setBusy] = useState(false)
@@ -177,7 +177,7 @@ function AddLead({ getToken, onSignedOut, ownPhone, onHold, onAdded }) {
   }
 
   if (onHold) {
-    return <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-900">Adding leads is paused while your account is on hold.</p>
+    return <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-900">{viewOnly ? "View only: you are viewing someone else's account." : 'Adding leads is paused while your account is on hold.'}</p>
   }
   if (!open) {
     return (

@@ -10,10 +10,20 @@ export class ApiError extends Error {
   }
 }
 
+// "View as" another affiliate, for Sri Raja Bags' own numbers only: sent with
+// every signed-in call, and refused by the backend for anyone else. Kept for
+// this tab only, so it never outlives the browser session.
+let viewAs = (() => { try { return sessionStorage.getItem('viewAs') || '' } catch { return '' } })()
+export const getViewAs = () => viewAs
+export const setViewAs = (target) => {
+  viewAs = target || ''
+  try { if (viewAs) sessionStorage.setItem('viewAs', viewAs); else sessionStorage.removeItem('viewAs') } catch { /* private mode */ }
+}
+const authHeaders = (token) => ({ Authorization: `Bearer ${token}`, ...(viewAs ? { 'X-View-As': viewAs } : {}) })
+
 const call = async (path, { method = 'GET', token, body } = {}) => {
   if (!BASE) throw new ApiError('The portal is not connected yet.', 0)
-  const headers = {}
-  if (token) headers.Authorization = `Bearer ${token}`
+  const headers = token ? authHeaders(token) : {}
   if (body !== undefined) headers['Content-Type'] = 'application/json'
   let res
   try {
@@ -43,7 +53,7 @@ export const fetchPaymentScreenshot = async (idToken, ref) => {
   let res
   try {
     res = await fetch(`${BASE}/me/withdrawals/${encodeURIComponent(ref)}/screenshot`, {
-      headers: { Authorization: `Bearer ${idToken}` },
+      headers: authHeaders(idToken),
     })
   } catch {
     throw new ApiError('No connection. Please check your internet and try again.', 0)

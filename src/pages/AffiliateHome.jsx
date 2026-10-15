@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Alert, FactoryPhoto, Shell, Spinner, WhatsAppIcon, useCooldown } from '../components.jsx'
-import { fetchMe } from '../services/api.js'
+import { fetchMe, getViewAs, setViewAs } from '../services/api.js'
 import InstallCard from '../InstallCard.jsx'
 import { track } from '../services/analytics.js'
 import Earnings from './Earnings.jsx'
@@ -10,7 +10,7 @@ import Onboard from './Onboard.jsx'
 import { firebaseConfigured, loadAuth } from '../services/firebase.js'
 import {
   authErrorMessage, cleanOtp, formatMobile, normaliseIndianMobile, OTP_LENGTH,
-  whatsappShareUrl, shareMessage, urlForView, viewFor, leadQualityText,
+  whatsappShareUrl, shareMessage, urlForView, viewFor, leadQualityText, viewAsTarget,
 } from '../domain/referral.js'
 
 const RESEND_AFTER_S = 30
@@ -278,6 +278,9 @@ function Dashboard({ fb, user }) {
   const summary = { enquiries: 0, inProgress: 0, ordersConfirmed: 0, commissionEarned: 0, ...me.summary }
   // On hold: still signed in, read-only. The link, withdrawals and onboarding pause.
   const onHold = me.status === 'Blocked'
+  // Viewing as another affiliate (Sri Raja Bags only): everything shows, nothing can be done.
+  const viewOnly = Boolean(me.viewingAs)
+  const paused = onHold || viewOnly
 
   const shareButtons = (
     <>
@@ -313,9 +316,11 @@ function Dashboard({ fb, user }) {
       )}
     >
       <div className="mb-4 flex items-center justify-between text-sm text-ink-soft">
-        <span>Signed in as <span className="font-medium text-ink">{formatMobile(me.phone)}</span></span>
+        <span>Signed in as <span className="font-medium text-ink">{formatMobile(user.phoneNumber || me.phone)}</span></span>
         {signOutButton}
       </div>
+
+      {me.canImpersonate && <ViewAs me={me} getToken={getToken} onLoaded={setMe} />}
 
       {onHold && (
         <div role="alert" className="mb-5 space-y-1.5 rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-900">
@@ -346,14 +351,16 @@ function Dashboard({ fb, user }) {
       </div>
       {refreshError && <div className="mb-4"><Alert>{refreshError}</Alert></div>}
 
+      {/* A fresh mount per person viewed, so no list carries over from the last one. */}
+      <div key={me.viewingAs || 'self'}>
       {view === 'enquiries' ? (
         <div className="lg:max-w-3xl">
           <Enquiries getToken={getToken} onSignedOut={signOut} earned={summary.commissionEarned}
-            ownPhone={me.phone} onHold={onHold} onChanged={refresh} />
+            ownPhone={me.phone} onHold={paused} viewOnly={viewOnly} onChanged={refresh} />
         </div>
       ) : view === 'onboard' ? (
         <div className="lg:max-w-3xl">
-          <Onboard me={me} getToken={getToken} onSignedOut={signOut} onChanged={refresh} onHold={onHold} />
+          <Onboard me={me} getToken={getToken} onSignedOut={signOut} onChanged={refresh} onHold={paused} viewOnly={viewOnly} />
         </div>
       ) : view === 'withdrawals' ? (
         <div className="lg:max-w-3xl">
@@ -387,7 +394,7 @@ function Dashboard({ fb, user }) {
             <aside className="space-y-4 lg:col-start-2 lg:row-span-2 lg:row-start-1">
               <Counts summary={summary} onShowEnquiries={() => go('enquiries')} />
               <LeadQuality quality={me.leadQuality} />
-              <Earnings me={me} getToken={getToken} onChanged={refresh} onShowHistory={() => go('withdrawals')} onHold={onHold} />
+              <Earnings me={me} getToken={getToken} onChanged={refresh} onShowHistory={() => go('withdrawals')} onHold={paused} viewOnly={viewOnly} />
               <section className="card hidden space-y-3 lg:block">
                 <h2 className="font-semibold text-navy">Questions?</h2>
                 <p className="text-sm text-ink-soft">Message us about the programme or a referral you have made.</p>
@@ -403,7 +410,54 @@ function Dashboard({ fb, user }) {
           </div>
         </>
       )}
+      </div>
     </Shell>
+  )
+}
+
+// "View as": for Sri Raja Bags' own numbers (IMPERSONATORS on the backend), to see
+// the portal exactly as an affiliate does when helping them. View only.
+function ViewAs({ me, getToken, onLoaded }) {
+  const [target, setTarget] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  const view = async (next) => {
+    const before = getViewAs()
+    setError('')
+    setBusy(true)
+    setViewAs(next)
+    try {
+      onLoaded(await fetchMe(await getToken()))
+      setTarget('')
+    } catch (err) {
+      setViewAs(before)
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (me.viewingAs) {
+    return (
+      <div role="status" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+        <p>
+          <span className="font-semibold">Viewing as {me.viewingAs}</span> · {formatMobile(me.phone)}
+          <span className="block text-xs">View only: nothing can be done in their name.</span>
+        </p>
+        <button className="btn-ghost w-auto px-4" disabled={busy} onClick={() => view('')}>{busy ? 'Leaving…' : 'Back to my account'}</button>
+      </div>
+    )
+  }
+  return (
+    <form className="mb-5 flex flex-wrap items-center gap-2 rounded-2xl border border-dashed border-rule px-4 py-3 text-sm"
+      onSubmit={(e) => { e.preventDefault(); const t = viewAsTarget(target); if (!t) return setError('Enter an affiliate code or a 10-digit mobile number.'); view(t) }}>
+      <span className="font-medium text-navy">View as an affiliate</span>
+      <input className="field min-w-0 flex-1 sm:max-w-56" value={target} onChange={(e) => setTarget(e.target.value)}
+        placeholder="Code or mobile number" autoComplete="off" autoCapitalize="characters" spellCheck="false" />
+      <button className="btn-ghost w-auto px-4" type="submit" disabled={busy}>{busy ? 'Opening…' : 'View'}</button>
+      {error && <p className="w-full text-red-800">{error}</p>}
+    </form>
   )
 }
 

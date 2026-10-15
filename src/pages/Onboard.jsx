@@ -7,7 +7,7 @@ import { formatEnquiryDate, formatMobile, formatPercent, formatRupees, inviteNud
 // The Onboard tab: bring someone else into the programme and earn a share, on
 // top, of everything they earn, for life. They are added with their own code and
 // join the moment they first sign in with the number given here.
-export default function Onboard({ me, getToken, onSignedOut, onChanged, onHold = false }) {
+export default function Onboard({ me, getToken, onSignedOut, onChanged, onHold = false, viewOnly = false }) {
   const share = me.tier?.onboardingShare ?? 0
   const earned = me.summary?.onboardingEarned ?? 0
 
@@ -91,7 +91,7 @@ export default function Onboard({ me, getToken, onSignedOut, onChanged, onHold =
         </ol>
 
         {onHold ? (
-          <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-900">Onboarding is paused while your account is on hold.</p>
+          <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-900">{viewOnly ? "View only: you are viewing someone else's account." : 'Onboarding is paused while your account is on hold.'}</p>
         ) : added ? (
           <div className="space-y-3 rounded-xl bg-mint-pale px-4 py-4" role="status">
             <p className="font-medium text-navy-deep">{added.name} has been added. Now send them the invite.</p>
