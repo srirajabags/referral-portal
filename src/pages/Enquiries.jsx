@@ -71,6 +71,8 @@ export default function Enquiries({ getToken, onSignedOut, earned = 0, ownPhone 
                     {e.ref && <span className="text-xs font-medium text-navy-soft">{e.ref}</span>}
                     {e.addedByYou && <span className="rounded-full bg-navy/5 px-2 py-0.5 text-xs font-medium text-navy">Added by you</span>}
                   </p>
+                  {/* The customer it became, on leads they added themselves (never on link enquiries). */}
+                  {e.customerName && <p className="text-xs font-medium text-navy-soft break-words">{e.customerName}</p>}
                   <p className="text-xs text-ink-soft">{formatEnquiryDate(e.submittedAt)}</p>
                 </div>
                 <div className="flex items-center gap-2">
